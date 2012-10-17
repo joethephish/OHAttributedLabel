@@ -163,6 +163,7 @@ BOOL CTRunContainsCharactersFromStringRange(CTRunRef run, NSRange range) {
 	self.userInteractionEnabled = YES;
 	self.contentMode = UIViewContentModeRedraw;
 	[self resetAttributedText];
+    cachedSizes = [[NSMutableDictionary dictionary] retain];
 }
 
 - (id)initWithFrame:(CGRect)aFrame
@@ -197,6 +198,7 @@ BOOL CTRunContainsCharactersFromStringRange(CTRunRef run, NSRange range) {
         textFrame = nil;
     }
 	[activeLink release];
+    [cachedSizes release];
 	[super dealloc];
 }
 
@@ -488,14 +490,25 @@ BOOL CTRunContainsCharactersFromStringRange(CTRunRef run, NSRange range) {
 }
 
 - (CGSize)sizeThatFits:(CGSize)size {
-	NSMutableAttributedString* attrStrWithLinks = [self attributedTextWithLinks];
-	CTFramesetterRef framesetter = CTFramesetterCreateWithAttributedString((CFAttributedStringRef)attrStrWithLinks);
-	CGFloat w = size.width;
-	CGSize sz = CTFramesetterSuggestFrameSizeWithConstraints(framesetter,CFRangeMake(0,0),NULL,CGSizeMake(w,CGFLOAT_MAX),NULL);
-	if (framesetter) CFRelease(framesetter);
-
+    
+    // See if we have a cached frame size available
+    CGFloat w = size.width;
+    NSValue *cachedSize = [cachedSizes objectForKey:@(w)];
+    if( cachedSize ) {
+        return [cachedSize CGSizeValue];
+    }
+    
+    NSMutableAttributedString* attrStrWithLinks = [self attributedTextWithLinks];
+    CTFramesetterRef framesetter = CTFramesetterCreateWithAttributedString((CFAttributedStringRef)attrStrWithLinks);
+    
+    CGSize sz = CTFramesetterSuggestFrameSizeWithConstraints(framesetter,CFRangeMake(0,0),NULL,CGSizeMake(w,CGFLOAT_MAX),NULL);
+    if (framesetter) CFRelease(framesetter);
+    
     // take 1pt of margin for security and ensure to return non-fractured values
-	return CGSizeMake(ceil(sz.width), ceil(sz.height+1));
+    CGSize fitSize = CGSizeMake(ceil(sz.width), ceil(sz.height+1));
+    [cachedSizes setObject:[NSValue valueWithCGSize:fitSize] forKey:@(w)];
+    
+    return fitSize;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -551,6 +564,7 @@ BOOL CTRunContainsCharactersFromStringRange(CTRunRef run, NSRange range) {
 	CTLineBreakMode coreTextLBMode = CTLineBreakModeFromUILineBreakMode(self.lineBreakMode);
 	[mutAttrStr setTextAlignment:coreTextAlign lineBreakMode:coreTextLBMode];
 	self.attributedText = mutAttrStr;
+    [cachedSizes removeAllObjects];
 }
 
 -(NSAttributedString*)attributedText {
@@ -563,7 +577,8 @@ BOOL CTRunContainsCharactersFromStringRange(CTRunRef run, NSRange range) {
 	[_attributedText release];
 	_attributedText = [attributedText mutableCopy];
     self.accessibilityLabel = _attributedText.string;
-	
+	[cachedSizes removeAllObjects];
+    
 	[self setNeedsDisplay];
 }
 
@@ -578,6 +593,7 @@ BOOL CTRunContainsCharactersFromStringRange(CTRunRef run, NSRange range) {
 }
 -(void)setFont:(UIFont *)font {
 	[_attributedText setFont:font];
+    [cachedSizes removeAllObjects];
 	[super setFont:font]; // will call setNeedsDisplay too
 }
 -(void)setTextColor:(UIColor *)color {
@@ -588,12 +604,14 @@ BOOL CTRunContainsCharactersFromStringRange(CTRunRef run, NSRange range) {
 	CTTextAlignment coreTextAlign = CTTextAlignmentFromUITextAlignment(alignment);
 	CTLineBreakMode coreTextLBMode = CTLineBreakModeFromUILineBreakMode(self.lineBreakMode);
 	[_attributedText setTextAlignment:coreTextAlign lineBreakMode:coreTextLBMode];
+    [cachedSizes removeAllObjects];
 	[super setTextAlignment:alignment]; // will call setNeedsDisplay too
 }
 -(void)setLineBreakMode:(UILineBreakMode)lineBreakMode {
 	CTTextAlignment coreTextAlign = CTTextAlignmentFromUITextAlignment(self.textAlignment);
 	CTLineBreakMode coreTextLBMode = CTLineBreakModeFromUILineBreakMode(lineBreakMode);
 	[_attributedText setTextAlignment:coreTextAlign lineBreakMode:coreTextLBMode];
+    [cachedSizes removeAllObjects];
 	[super setLineBreakMode:lineBreakMode]; // will call setNeedsDisplay too
 }
 -(void)setCenterVertically:(BOOL)val {

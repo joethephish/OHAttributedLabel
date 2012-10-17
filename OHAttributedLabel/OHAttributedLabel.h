@@ -52,6 +52,7 @@
 	CGRect drawingRect;
 	NSMutableArray* customLinks;
 	NSTextCheckingResult* activeLink;
+    NSMutableDictionary* cachedSizes;
 }
 
 /* Attributed String accessors */
