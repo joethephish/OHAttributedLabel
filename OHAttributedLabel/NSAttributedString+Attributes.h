@@ -66,6 +66,10 @@
 
 -(void)setTextAlignment:(CTTextAlignment)alignment lineBreakMode:(CTLineBreakMode)lineBreakMode;
 -(void)setTextAlignment:(CTTextAlignment)alignment lineBreakMode:(CTLineBreakMode)lineBreakMode range:(NSRange)range;
+
+-(void)setKerning:(int)value;
+-(void)setLeading:(CGFloat)value;
+
 @end
 
 

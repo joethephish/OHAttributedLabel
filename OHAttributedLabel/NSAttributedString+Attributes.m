@@ -120,6 +120,20 @@
 	CFRelease(aStyle);
 }
 
+-(void)setKerning:(int)value {
+	[self addAttribute:(NSString*)kCTKernAttributeName value:(id)[NSNumber numberWithInt:value] range:NSMakeRange(0,[self length])];
+}
+
+-(void)setLeading:(CGFloat)value {
+	CTParagraphStyleSetting paraStyles[1] = {
+		//{.spec = kCTParagraphStyleSpecifierLineSpacingAdjustment, .valueSize = sizeof(CGFloat), .value = (const void*)&value}
+		{kCTParagraphStyleSpecifierLineSpacingAdjustment, sizeof(CGFloat), &value}
+	};
+	CTParagraphStyleRef aStyle = CTParagraphStyleCreate(paraStyles, 1);
+	[self addAttribute:(NSString*)kCTParagraphStyleAttributeName value:(id)aStyle range:NSMakeRange(0,[self length])];
+    CFRelease(aStyle);
+}
+
 @end
 
 
