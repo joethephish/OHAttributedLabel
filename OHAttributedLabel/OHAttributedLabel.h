@@ -32,6 +32,7 @@
 
 #import <UIKit/UIKit.h>
 #import <CoreText/CoreText.h>
+#import "NSAttributedString+Attributes.h"
 
 /////////////////////////////////////////////////////////////////////////////
 

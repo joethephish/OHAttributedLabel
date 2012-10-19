@@ -31,7 +31,6 @@
 
 
 #import "OHAttributedLabel.h"
-#import "NSAttributedString+Attributes.h"
 
 CTTextAlignment CTTextAlignmentFromUITextAlignment(UITextAlignment alignment);
 CTLineBreakMode CTLineBreakModeFromUILineBreakMode(UILineBreakMode lineBreakMode);
