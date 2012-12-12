@@ -346,6 +346,37 @@ BOOL CTRunContainsCharactersFromStringRange(CTRunRef run, NSRange range) {
 	return -1;
 }
 
+- (CGRect) rectOfCharactersInRange:(NSRange)range
+{
+    CGRect fullRect = CGRectNull;
+	
+    // Set up text frame right now if necessary
+    if (textFrame == NULL) {
+        NSMutableAttributedString* attrStrWithLinks = [self attributedTextWithLinks];
+        [self setupFrameWithAttributedString:attrStrWithLinks];
+    }
+    
+	CFArrayRef lines = CTFrameGetLines(textFrame);
+    if (!lines) {
+        return CGRectNull;
+    }
+    
+	CFIndex lineCount = CFArrayGetCount(lines);
+	CGPoint lineOrigins[lineCount];
+	CTFrameGetLineOrigins(textFrame, CFRangeMake(0,0), lineOrigins);
+    
+	for (CFIndex lineIndex = 0; lineIndex < lineCount; lineIndex++) {
+		CTLineRef line = CFArrayGetValueAtIndex(lines, lineIndex);
+        
+        if( CTLineContainsCharactersFromStringRange(line, range) ) {
+            CGRect lineRect = CTLineGetTypographicBoundsAsRect(line, lineOrigins[lineIndex]);
+            fullRect = CGRectUnion(fullRect, lineRect);
+        }
+    }
+
+    return CGRectFlipped(fullRect, CGRectFlipped(drawingRect,self.bounds));
+}
+
 -(UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
 	// never return self. always return the result of [super hitTest..].
 	// this takes userInteraction state, enabled, alpha values etc. into account
@@ -414,6 +445,28 @@ BOOL CTRunContainsCharactersFromStringRange(CTRunRef run, NSRange range) {
 	}
 }
 
+- (void) setupFrameWithAttributedString:(NSAttributedString*)attrStrWithLinks
+{
+    CTFramesetterRef framesetter = CTFramesetterCreateWithAttributedString((CFAttributedStringRef)attrStrWithLinks);
+    drawingRect = self.bounds;
+    if (self.centerVertically || self.extendBottomToFit) {
+        CGSize sz = CTFramesetterSuggestFrameSizeWithConstraints(framesetter,CFRangeMake(0,0),NULL,CGSizeMake(drawingRect.size.width,CGFLOAT_MAX),NULL);
+        if (self.extendBottomToFit) {
+            CGFloat delta = MAX(0.f , ceilf(sz.height - drawingRect.size.height)) + 10 /* Security margin */;
+            drawingRect.origin.y -= delta;
+            drawingRect.size.height += delta;
+        }
+        if (self.centerVertically) {
+            drawingRect.origin.y -= (drawingRect.size.height - sz.height)/2;
+        }
+    }
+    CGMutablePathRef path = CGPathCreateMutable();
+    CGPathAddRect(path, NULL, drawingRect);
+    textFrame = CTFramesetterCreateFrame(framesetter,CFRangeMake(0,0), path, NULL);
+    CGPathRelease(path);
+    CFRelease(framesetter);
+}
+
 - (void)drawTextInRect:(CGRect)aRect
 {
 	if (_attributedText) {
@@ -432,26 +485,10 @@ BOOL CTRunContainsCharactersFromStringRange(CTRunRef run, NSRange range) {
 		if (self.highlighted && self.highlightedTextColor != nil) {
 			[attrStrWithLinks setTextColor:self.highlightedTextColor];
 		}
-		if (textFrame == NULL) {
-			CTFramesetterRef framesetter = CTFramesetterCreateWithAttributedString((CFAttributedStringRef)attrStrWithLinks);
-			drawingRect = self.bounds;
-			if (self.centerVertically || self.extendBottomToFit) {
-				CGSize sz = CTFramesetterSuggestFrameSizeWithConstraints(framesetter,CFRangeMake(0,0),NULL,CGSizeMake(drawingRect.size.width,CGFLOAT_MAX),NULL);
-				if (self.extendBottomToFit) {
-					CGFloat delta = MAX(0.f , ceilf(sz.height - drawingRect.size.height)) + 10 /* Security margin */;
-					drawingRect.origin.y -= delta;
-					drawingRect.size.height += delta;
-				}
-				if (self.centerVertically) {
-					drawingRect.origin.y -= (drawingRect.size.height - sz.height)/2;
-				}
-			}
-			CGMutablePathRef path = CGPathCreateMutable();
-			CGPathAddRect(path, NULL, drawingRect);
-			textFrame = CTFramesetterCreateFrame(framesetter,CFRangeMake(0,0), path, NULL);
-			CGPathRelease(path);
-			CFRelease(framesetter);
-		}
+        
+        if (textFrame == NULL) {
+            [self setupFrameWithAttributedString:attrStrWithLinks];
+        }
 		
 		// draw highlights for activeLink
 		if (activeLink) {

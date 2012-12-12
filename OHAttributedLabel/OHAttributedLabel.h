@@ -77,5 +77,6 @@
 @property(nonatomic, assign) BOOL allowCopying;
 
 -(int)characterIndexAtPoint:(CGPoint)point;
+- (CGRect) rectOfCharactersInRange:(NSRange)range;
 
 @end
