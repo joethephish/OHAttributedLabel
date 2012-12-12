@@ -75,4 +75,7 @@
 @property(nonatomic, assign) BOOL extendBottomToFit; //!< Allows to draw text past the bottom of the view if need. May help in rare cases (like using Emoji)
 
 @property(nonatomic, assign) BOOL allowCopying;
+
+-(int)characterIndexAtPoint:(CGPoint)point;
+
 @end

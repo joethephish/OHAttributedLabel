@@ -315,6 +315,37 @@ BOOL CTRunContainsCharactersFromStringRange(CTRunRef run, NSRange range) {
 	return nil;
 }
 
+-(int)characterIndexAtPoint:(CGPoint)point
+{
+	static const CGFloat kVMargin = 5.f;
+	if (!CGRectContainsPoint(CGRectInset(drawingRect, 0, -kVMargin), point)) return -1;
+	
+	CFArrayRef lines = CTFrameGetLines(textFrame);
+    if (!lines) return -1;
+	CFIndex nbLines = CFArrayGetCount(lines);
+	
+	CGPoint origins[nbLines];
+	CTFrameGetLineOrigins(textFrame, CFRangeMake(0,0), origins);
+	
+	for (int lineIndex=0 ; lineIndex<nbLines ; ++lineIndex) {
+		// this actually the origin of the line rect, so we need the whole rect to flip it
+		CGPoint lineOriginFlipped = origins[lineIndex];
+		
+		CTLineRef line = CFArrayGetValueAtIndex(lines, lineIndex);
+		CGRect lineRectFlipped = CTLineGetTypographicBoundsAsRect(line, lineOriginFlipped);
+		CGRect lineRect = CGRectFlipped(lineRectFlipped, CGRectFlipped(drawingRect,self.bounds));
+		
+		lineRect = CGRectInset(lineRect, 0, -kVMargin);
+		if (CGRectContainsPoint(lineRect, point)) {
+			CGPoint relativePoint = CGPointMake(point.x-CGRectGetMinX(lineRect),
+												point.y-CGRectGetMinY(lineRect));
+			CFIndex idx = CTLineGetStringIndexForPosition(line, relativePoint);
+			return idx;
+		}
+	}
+	return -1;
+}
+
 -(UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
 	// never return self. always return the result of [super hitTest..].
 	// this takes userInteraction state, enabled, alpha values etc. into account
