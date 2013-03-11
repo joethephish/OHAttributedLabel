@@ -326,6 +326,8 @@ BOOL CTRunContainsCharactersFromStringRange(CTRunRef run, NSRange range) {
 	
 	CGPoint origins[nbLines];
 	CTFrameGetLineOrigins(textFrame, CFRangeMake(0,0), origins);
+    
+    CFIndex maxStrIndex = [self attributedText].length-1;
 	
 	for (int lineIndex=0 ; lineIndex<nbLines ; ++lineIndex) {
 		// this actually the origin of the line rect, so we need the whole rect to flip it
@@ -340,6 +342,14 @@ BOOL CTRunContainsCharactersFromStringRange(CTRunRef run, NSRange range) {
 			CGPoint relativePoint = CGPointMake(point.x-CGRectGetMinX(lineRect),
 												point.y-CGRectGetMinY(lineRect));
 			CFIndex idx = CTLineGetStringIndexForPosition(line, relativePoint);
+            
+            // CTLineGetStringIndexForPosition can return one beyond the last index
+            // of the string, since it was designed for text insertion (see docs).
+            // So, we need to clamp the index
+            if( idx > maxStrIndex ) {
+                idx = maxStrIndex;
+            }
+            
 			return idx;
 		}
 	}
