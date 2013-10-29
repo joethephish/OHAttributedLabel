@@ -117,4 +117,9 @@ __attribute__((deprecated("You should remove links directly to from NSAttributed
 @property(nonatomic, assign) BOOL centerVertically;
 //! Allows to draw text past the bottom of the view if need. May help in rare cases (like using Emoji)
 @property(nonatomic, assign) BOOL extendBottomToFit;
+
+
+- (int) characterIndexAtPoint:(CGPoint)point;
+- (CGRect) rectOfCharactersInRange:(NSRange)range;
+
 @end
