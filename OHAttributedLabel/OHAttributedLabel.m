@@ -637,8 +637,8 @@ BOOL CTRunContainsCharactersFromStringRange(CTRunRef run, NSRange range) {
 	NSMutableAttributedString* mutAttrStr = [NSMutableAttributedString attributedStringWithString:self.text];
 	[mutAttrStr setFont:self.font];
 	[mutAttrStr setTextColor:self.textColor];
-	CTTextAlignment coreTextAlign = CTTextAlignmentFromUITextAlignment(self.textAlignment);
-	CTLineBreakMode coreTextLBMode = CTLineBreakModeFromUILineBreakMode(self.lineBreakMode);
+	CTTextAlignment coreTextAlign = CTTextAlignmentFromUITextAlignment((UITextAlignment)self.textAlignment);
+	CTLineBreakMode coreTextLBMode = CTLineBreakModeFromUILineBreakMode((UILineBreakMode)self.lineBreakMode);
 	[mutAttrStr setTextAlignment:coreTextAlign lineBreakMode:coreTextLBMode];
 	self.attributedText = mutAttrStr;
     [cachedSizes removeAllObjects];
@@ -677,16 +677,16 @@ BOOL CTRunContainsCharactersFromStringRange(CTRunRef run, NSRange range) {
 	[_attributedText setTextColor:color];
 	[super setTextColor:color]; // will call setNeedsDisplay too
 }
--(void)setTextAlignment:(UITextAlignment)alignment {
-	CTTextAlignment coreTextAlign = CTTextAlignmentFromUITextAlignment(alignment);
-	CTLineBreakMode coreTextLBMode = CTLineBreakModeFromUILineBreakMode(self.lineBreakMode);
+-(void)setTextAlignment:(NSTextAlignment)alignment {
+	CTTextAlignment coreTextAlign = CTTextAlignmentFromUITextAlignment((UITextAlignment)alignment);
+	CTLineBreakMode coreTextLBMode = CTLineBreakModeFromUILineBreakMode((UILineBreakMode)self.lineBreakMode);
 	[_attributedText setTextAlignment:coreTextAlign lineBreakMode:coreTextLBMode];
     [cachedSizes removeAllObjects];
 	[super setTextAlignment:alignment]; // will call setNeedsDisplay too
 }
--(void)setLineBreakMode:(UILineBreakMode)lineBreakMode {
-	CTTextAlignment coreTextAlign = CTTextAlignmentFromUITextAlignment(self.textAlignment);
-	CTLineBreakMode coreTextLBMode = CTLineBreakModeFromUILineBreakMode(lineBreakMode);
+-(void)setLineBreakMode:(NSLineBreakMode)lineBreakMode {
+	CTTextAlignment coreTextAlign = CTTextAlignmentFromUITextAlignment((UITextAlignment)self.textAlignment);
+	CTLineBreakMode coreTextLBMode = CTLineBreakModeFromUILineBreakMode((UILineBreakMode)lineBreakMode);
 	[_attributedText setTextAlignment:coreTextAlign lineBreakMode:coreTextLBMode];
     [cachedSizes removeAllObjects];
 	[super setLineBreakMode:lineBreakMode]; // will call setNeedsDisplay too
