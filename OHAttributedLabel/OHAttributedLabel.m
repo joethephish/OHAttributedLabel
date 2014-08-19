@@ -350,7 +350,7 @@ BOOL CTRunContainsCharactersFromStringRange(CTRunRef run, NSRange range) {
                 idx = maxStrIndex;
             }
             
-			return idx;
+			return (int)idx;
 		}
 	}
 	return -1;
