@@ -145,9 +145,9 @@ NSDataDetector* sharedReusableDataDetector(NSTextCheckingTypes types)
 	self.contentMode = UIViewContentModeRedraw;
 	[self resetAttributedText];
     
-    _gestureRecogniser = [[OHTouchesGestureRecognizer alloc] initWithTarget:self action:@selector(_gestureRecognised:)];
-    _gestureRecogniser.delegate = self;
-    [self addGestureRecognizer:_gestureRecogniser];
+//    _gestureRecogniser = [[OHTouchesGestureRecognizer alloc] initWithTarget:self action:@selector(_gestureRecognised:)];
+//    _gestureRecogniser.delegate = self;
+//    [self addGestureRecognizer:_gestureRecogniser];
 }
 
 - (id) initWithFrame:(CGRect)aFrame
@@ -522,6 +522,35 @@ NSDataDetector* sharedReusableDataDetector(NSTextCheckingTypes types)
 	}
 }
 
+- (void) setupTextFrameIfNecessaryWithAttributedString:(NSAttributedString*)attributedStringToDisplay
+{
+    if (textFrame == NULL)
+    {
+        CFAttributedStringRef cfAttrStrWithLinks = (__bridge CFAttributedStringRef)attributedStringToDisplay;
+        CTFramesetterRef framesetter = CTFramesetterCreateWithAttributedString(cfAttrStrWithLinks);
+        drawingRect = self.bounds;
+        if (self.centerVertically || self.extendBottomToFit)
+        {
+            CGSize sz = CTFramesetterSuggestFrameSizeWithConstraints(framesetter,CFRangeMake(0,0),NULL,CGSizeMake(drawingRect.size.width,CGFLOAT_MAX),NULL);
+            if (self.extendBottomToFit)
+            {
+                CGFloat delta = MAX(0.f , ceil(sz.height - drawingRect.size.height)) + 10 /* Security margin */;
+                drawingRect.origin.y -= delta;
+                drawingRect.size.height += delta;
+            }
+            if (self.centerVertically && drawingRect.size.height > sz.height)
+            {
+                drawingRect.origin.y -= (drawingRect.size.height - sz.height)/2;
+            }
+        }
+        CGMutablePathRef path = CGPathCreateMutable();
+        CGPathAddRect(path, NULL, drawingRect);
+        textFrame = CTFramesetterCreateFrame(framesetter,CFRangeMake(0,0), path, NULL);
+        CGPathRelease(path);
+        CFRelease(framesetter);
+    }
+}
+
 - (void)drawTextInRect:(CGRect)aRect
 {
 	if (_attributedText)
@@ -548,31 +577,8 @@ NSDataDetector* sharedReusableDataDetector(NSTextCheckingTypes types)
                 [mutAS setTextColor:self.highlightedTextColor];
                 attributedStringToDisplay = mutAS;
             }
-            if (textFrame == NULL)
-            {
-                CFAttributedStringRef cfAttrStrWithLinks = (__bridge CFAttributedStringRef)attributedStringToDisplay;
-                CTFramesetterRef framesetter = CTFramesetterCreateWithAttributedString(cfAttrStrWithLinks);
-                drawingRect = self.bounds;
-                if (self.centerVertically || self.extendBottomToFit)
-                {
-                    CGSize sz = CTFramesetterSuggestFrameSizeWithConstraints(framesetter,CFRangeMake(0,0),NULL,CGSizeMake(drawingRect.size.width,CGFLOAT_MAX),NULL);
-                    if (self.extendBottomToFit)
-                    {
-                        CGFloat delta = MAX(0.f , ceil(sz.height - drawingRect.size.height)) + 10 /* Security margin */;
-                        drawingRect.origin.y -= delta;
-                        drawingRect.size.height += delta;
-                    }
-                    if (self.centerVertically && drawingRect.size.height > sz.height)
-                    {
-                        drawingRect.origin.y -= (drawingRect.size.height - sz.height)/2;
-                    }
-                }
-                CGMutablePathRef path = CGPathCreateMutable();
-                CGPathAddRect(path, NULL, drawingRect);
-                textFrame = CTFramesetterCreateFrame(framesetter,CFRangeMake(0,0), path, NULL);
-                CGPathRelease(path);
-                CFRelease(framesetter);
-            }
+            
+            [self setupTextFrameIfNecessaryWithAttributedString:attributedStringToDisplay];
             
             // draw highlights for activeLink
             if (_activeLink)
@@ -915,5 +921,80 @@ NSDataDetector* sharedReusableDataDetector(NSTextCheckingTypes types)
 	[super setNumberOfLines:nbLines];
 }
 #endif
+
+/////////////////////////////////////////////////////////////////////////////////////
+#pragma mark - Bible verses extensions
+/////////////////////////////////////////////////////////////////////////////////////
+
+
+-(int)characterIndexAtPoint:(CGPoint)point
+{
+	static const CGFloat kVMargin = 5.f;
+	if (!CGRectContainsPoint(CGRectInset(drawingRect, 0, -kVMargin), point)) return -1;
+	
+	CFArrayRef lines = CTFrameGetLines(textFrame);
+    if (!lines) return -1;
+	CFIndex nbLines = CFArrayGetCount(lines);
+	
+	CGPoint origins[nbLines];
+	CTFrameGetLineOrigins(textFrame, CFRangeMake(0,0), origins);
+    
+    CFIndex maxStrIndex = (CFIndex)[self attributedText].length-1;
+	
+	for (int lineIndex=0 ; lineIndex<nbLines ; ++lineIndex) {
+		// this actually the origin of the line rect, so we need the whole rect to flip it
+		CGPoint lineOriginFlipped = origins[lineIndex];
+		
+		CTLineRef line = CFArrayGetValueAtIndex(lines, lineIndex);
+		CGRect lineRectFlipped = CTLineGetTypographicBoundsAsRect(line, lineOriginFlipped);
+		CGRect lineRect = CGRectFlipped(lineRectFlipped, CGRectFlipped(drawingRect,self.bounds));
+		
+		lineRect = CGRectInset(lineRect, 0, -kVMargin);
+		if (CGRectContainsPoint(lineRect, point)) {
+			CGPoint relativePoint = CGPointMake(point.x-CGRectGetMinX(lineRect),
+												point.y-CGRectGetMinY(lineRect));
+			CFIndex idx = CTLineGetStringIndexForPosition(line, relativePoint);
+            
+            // CTLineGetStringIndexForPosition can return one beyond the last index
+            // of the string, since it was designed for text insertion (see docs).
+            // So, we need to clamp the index
+            if( idx > maxStrIndex ) {
+                idx = maxStrIndex;
+            }
+            
+			return (int)idx;
+		}
+	}
+	return -1;
+}
+
+- (CGRect) rectOfCharactersInRange:(NSRange)range
+{
+    CGRect fullRect = CGRectNull;
+	
+    // Set up text frame right now if necessary
+    [self setupTextFrameIfNecessaryWithAttributedString:_attributedTextWithLinks];
+    
+	CFArrayRef lines = CTFrameGetLines(textFrame);
+    if (!lines) {
+        return CGRectNull;
+    }
+    
+	CFIndex lineCount = CFArrayGetCount(lines);
+	CGPoint lineOrigins[lineCount];
+	CTFrameGetLineOrigins(textFrame, CFRangeMake(0,0), lineOrigins);
+    
+	for (CFIndex lineIndex = 0; lineIndex < lineCount; lineIndex++) {
+		CTLineRef line = CFArrayGetValueAtIndex(lines, lineIndex);
+        
+        if( CTLineContainsCharactersFromStringRange(line, range) ) {
+            CGRect lineRect = CTLineGetTypographicBoundsAsRect(line, lineOrigins[lineIndex]);
+            fullRect = CGRectUnion(fullRect, lineRect);
+        }
+    }
+    
+    return CGRectFlipped(fullRect, CGRectFlipped(drawingRect,self.bounds));
+}
+
 
 @end
