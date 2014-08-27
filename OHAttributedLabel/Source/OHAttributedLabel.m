@@ -586,13 +586,60 @@ NSDataDetector* sharedReusableDataDetector(NSTextCheckingTypes types)
                 [self drawActiveLinkHighlightForRect:drawingRect];
             }
             
-            CTFrameDraw(textFrame, ctx);
+            // Alternative implementation of CTFrameDraw that supports baseline change for Bible Verses verse numbers
+            [self drawTextFrameInContext:ctx];
+            //CTFrameDraw(textFrame, ctx);
             
             CGContextRestoreGState(ctx);
         } // @autoreleasepool
 	} else {
 		[super drawTextInRect:aRect];
 	}
+}
+
+// Alternative implementation of CTFrameDraw that supports baseline change for Bible Verses verse numbers
+- (void) drawTextFrameInContext:(CGContextRef)ctx
+{
+    CFArrayRef lines = CTFrameGetLines(textFrame);
+    CFIndex lineCount = CFArrayGetCount(lines);
+    CGPoint lineOrigins[lineCount];
+    CTFrameGetLineOrigins(textFrame, CFRangeMake(0, 0), lineOrigins);
+    
+    for (CFIndex lineIndex = 0; lineIndex < lineCount; lineIndex++)
+    {
+        CTLineRef line = CFArrayGetValueAtIndex(lines, lineIndex);
+        CGPoint origin = lineOrigins[lineIndex];
+        
+        // Find standard line drawing position to use for runs (that don't have a baseline offset)
+        BOOL lineTextPositionDirty = YES;
+        CGPoint lineDrawPosition = CGPointMake(drawingRect.origin.x + origin.x,
+                                               drawingRect.origin.y + origin.y);
+        
+        CFArrayRef runs = CTLineGetGlyphRuns(line);
+        CFIndex runCount = CFArrayGetCount(runs);
+        for (CFIndex runIndex = 0; runIndex < runCount; runIndex++)
+        {
+            CTRunRef run = CFArrayGetValueAtIndex(runs, runIndex);
+            
+            // Implement custom baseline attribute
+            NSDictionary *runAttributes = (__bridge NSDictionary*) CTRunGetAttributes(run);
+            NSNumber *baselineOffsetNum = runAttributes[@"com.inkle.CustomBaselineAttribute"];
+            
+            // Offset by baseline
+            if( baselineOffsetNum ) {
+                CGContextSetTextPosition(ctx, lineDrawPosition.x, lineDrawPosition.y + baselineOffsetNum.intValue);
+                lineTextPositionDirty = YES;
+            }
+            
+            // Usual positioning
+            else if( lineTextPositionDirty ) {
+                CGContextSetTextPosition(ctx, lineDrawPosition.x, lineDrawPosition.y);
+                lineTextPositionDirty = NO;
+            }
+            
+            CTRunDraw(run, ctx, CFRangeMake(0, 0));
+        }
+    }
 }
 
 -(void)drawActiveLinkHighlightForRect:(CGRect)rect
